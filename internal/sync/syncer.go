@@ -10,12 +10,12 @@ import (
 
 // Syncer handles synchronization between Garmin and iDO
 type Syncer struct {
-	garminClient *garmin.Client
+	garminClient garmin.GarminClient
 	idoClient    *ido.Client
 }
 
 // NewSyncer creates a new syncer
-func NewSyncer(garminClient *garmin.Client, idoClient *ido.Client) *Syncer {
+func NewSyncer(garminClient garmin.GarminClient, idoClient *ido.Client) *Syncer {
 	return &Syncer{
 		garminClient: garminClient,
 		idoClient:    idoClient,

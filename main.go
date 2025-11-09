@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	//"os"
 	"time"
 
 	"garmin-to-ido/internal/config"
@@ -59,13 +58,13 @@ func main() {
 	}
 	fmt.Println()
 
-	// Initialize Garmin client
-	garminClient := garmin.NewClient(cfg.GarminUsername, cfg.GarminPassword)
+	// Initialize Garmin client (using Python wrapper)
+	garminClient := garmin.NewPythonClient(cfg.GarminUsername, cfg.GarminPassword)
 	if err := garminClient.Login(); err != nil {
-		log.Fatalf("Failed to login to Garmin: %v", err)
+		log.Fatalf("Failed to initialize Garmin client: %v", err)
 	}
 	defer garminClient.Logout()
-	fmt.Println("✓ Logged in to Garmin Connect")
+	fmt.Println("✓ Initialized Garmin Connect client")
 
 	// Initialize iDO client
 	idoClient, err := ido.NewClient(cfg.IdoUsername, cfg.IdoPassword)
