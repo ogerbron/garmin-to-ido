@@ -27,6 +27,10 @@ go.work.sum
 # env file
 .env
 
+# Binary output
+garmin-to-ido
+garmin-to-ido-*
+
 # Editor/IDE
 # .idea/
 # .vscode/
