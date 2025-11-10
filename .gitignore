@@ -34,3 +34,6 @@ garmin-to-ido-*
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Claude
+.claude

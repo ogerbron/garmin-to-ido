@@ -96,9 +96,75 @@ func (c *Client) Login() error {
 	return nil
 }
 
+// mapActivityType maps Garmin activity types to iDO sport types
+func mapActivityType(garminType string) string {
+	// Map common Garmin activity types to iDO sport types
+	typeMap := map[string]string{
+		"cycling":         "bike",
+		"road_biking":     "bike",
+		"mountain_biking": "bike",
+		"gravel_cycling":  "bike",
+		"indoor_cycling":  "bike",
+		"virtual_ride":    "bike",
+		"running":         "run",
+		"trail_running":   "run",
+		"treadmill":       "run",
+		"walking":         "walk",
+		"hiking":          "walk",
+		"swimming":        "swim",
+	}
+
+	// Convert to lowercase for case-insensitive matching
+	garminTypeLower := garminType
+	if mapped, ok := typeMap[garminTypeLower]; ok {
+		return mapped
+	}
+
+	// Default to bike if unknown
+	return "bike"
+}
+
+// logRequest logs HTTP request details
+func logRequest(req *http.Request, body []byte) {
+	fmt.Printf("\n=== REQUEST ===\n")
+	fmt.Printf("%s %s\n", req.Method, req.URL.String())
+	fmt.Printf("Headers:\n")
+	for key, values := range req.Header {
+		for _, value := range values {
+			fmt.Printf("  %s: %s\n", key, value)
+		}
+	}
+	if len(body) > 0 && len(body) < 1000 {
+		fmt.Printf("Body: %s\n", string(body))
+	} else if len(body) > 0 {
+		fmt.Printf("Body: [%d bytes]\n", len(body))
+	}
+	fmt.Printf("===============\n\n")
+}
+
+// logResponse logs HTTP response details
+func logResponse(resp *http.Response, body []byte) {
+	fmt.Printf("\n=== RESPONSE ===\n")
+	fmt.Printf("Status: %d %s\n", resp.StatusCode, resp.Status)
+	fmt.Printf("Headers:\n")
+	for key, values := range resp.Header {
+		for _, value := range values {
+			fmt.Printf("  %s: %s\n", key, value)
+		}
+	}
+	if len(body) > 0 && len(body) < 10000 {
+		fmt.Printf("Body: %s\n", string(body))
+	} else if len(body) > 0 {
+		fmt.Printf("Body: [%d bytes]\n", len(body))
+	}
+	fmt.Printf("================\n\n")
+}
+
 // UploadActivity uploads an activity to iDO Sport using the API
-func (c *Client) UploadActivity(activityData []byte, activityName string) error {
-	fmt.Printf("Uploading activity: %s (%d bytes)\n", activityName, len(activityData))
+func (c *Client) UploadActivity(activityData []byte, activityName, activityType string, activityDate time.Time) error {
+	fmt.Printf("\n\n========================================\n")
+	fmt.Printf("Uploading activity: %s (%d bytes, type: %s, date: %s)\n", activityName, len(activityData), activityType, activityDate.Format("2006-01-02"))
+	fmt.Printf("========================================\n")
 
 	// Get cookies from browser session for idosport.app domain
 	var cookies []*network.Cookie
@@ -138,6 +204,7 @@ func (c *Client) UploadActivity(activityData []byte, activityName string) error 
 	}
 
 	// Step 1: Get S3 upload URL
+	fmt.Printf("\nStep 1: Get S3 upload URL\n")
 	req, err := http.NewRequest("GET", idoBaseURL+"/v-get-s3-s-upurl", nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
@@ -148,11 +215,13 @@ func (c *Client) UploadActivity(activityData []byte, activityName string) error 
 	req.Header.Set("Accept-Language", "en-GB,en;q=0.9,fr-FR;q=0.8,fr;q=0.7,en-US;q=0.6")
 	req.Header.Set("Referer", athleteURL)
 	req.Header.Set("Origin", idoBaseURL)
-	req.Header.Set("X-Requested-With", "XMLHttpRequest")
+	req.Header.Set("DNT", "1")
 	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36")
 	req.Header.Set("Sec-Fetch-Dest", "empty")
 	req.Header.Set("Sec-Fetch-Mode", "cors")
 	req.Header.Set("Sec-Fetch-Site", "same-origin")
+
+	logRequest(req, nil)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -165,6 +234,8 @@ func (c *Client) UploadActivity(activityData []byte, activityName string) error 
 	if err != nil {
 		return fmt.Errorf("failed to read response: %w", err)
 	}
+
+	logResponse(resp, body)
 
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("failed to get upload URL: %d %s", resp.StatusCode, string(body))
@@ -180,12 +251,23 @@ func (c *Client) UploadActivity(activityData []byte, activityName string) error 
 	}
 
 	// Step 2: Upload file to S3
+	fmt.Printf("\nStep 2: Upload file to S3\n")
 	s3Req, err := http.NewRequest("PUT", s3Response.URL, bytes.NewReader(activityData))
 	if err != nil {
 		return fmt.Errorf("failed to create S3 request: %w", err)
 	}
 
-	s3Req.Header.Set("Content-Type", "application/octet-stream")
+	s3Req.Header.Set("Content-Type", "application/fits")
+	s3Req.Header.Set("Accept", "application/json, text/plain, */*")
+	s3Req.Header.Set("Accept-Language", "en-GB,en;q=0.9,fr-FR;q=0.8,fr;q=0.7,en-US;q=0.6")
+	s3Req.Header.Set("Origin", idoBaseURL)
+	s3Req.Header.Set("Referer", idoBaseURL+"/")
+	s3Req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36")
+	s3Req.Header.Set("Sec-Fetch-Dest", "empty")
+	s3Req.Header.Set("Sec-Fetch-Mode", "cors")
+	s3Req.Header.Set("Sec-Fetch-Site", "cross-site")
+
+	logRequest(s3Req, activityData)
 
 	s3Resp, err := client.Do(s3Req)
 	if err != nil {
@@ -193,24 +275,33 @@ func (c *Client) UploadActivity(activityData []byte, activityName string) error 
 	}
 	defer s3Resp.Body.Close()
 
+	s3Body, _ := io.ReadAll(s3Resp.Body)
+	logResponse(s3Resp, s3Body)
+
 	if s3Resp.StatusCode != 200 {
-		body, _ := io.ReadAll(s3Resp.Body)
-		return fmt.Errorf("S3 upload failed: %d %s", s3Resp.StatusCode, string(body))
+		return fmt.Errorf("S3 upload failed: %d %s", s3Resp.StatusCode, string(s3Body))
 	}
 
 	// Step 3: Create activity record
+	fmt.Printf("\nStep 3: Create activity record\n")
 	var buf bytes.Buffer
 	writer := multipart.NewWriter(&buf)
 
+	// Map the activity type to iDO sport type
+	idoSportType := mapActivityType(activityType)
+
 	writer.WriteField("actName", activityName)
-	writer.WriteField("dateString", time.Now().Format("2006-01-02"))
+	writer.WriteField("dateString", activityDate.Format("2006-01-02"))
 	writer.WriteField("creationType", "fit")
-	writer.WriteField("sportType", "bike")
+	writer.WriteField("sportType", idoSportType)
 	writer.WriteField("keyFile", s3Response.Key)
 
 	writer.Close()
 
-	activityReq, err := http.NewRequest("POST", idoBaseURL+"/v-add-activity-v2", &buf)
+	// Store the body for logging
+	requestBody := buf.Bytes()
+
+	activityReq, err := http.NewRequest("POST", idoBaseURL+"/v-add-activity-v2", bytes.NewReader(requestBody))
 	if err != nil {
 		return fmt.Errorf("failed to create activity request: %w", err)
 	}
@@ -218,9 +309,16 @@ func (c *Client) UploadActivity(activityData []byte, activityName string) error 
 	activityReq.Header.Set("Cookie", cookieStr)
 	activityReq.Header.Set("Content-Type", writer.FormDataContentType())
 	activityReq.Header.Set("Accept", "application/json, text/plain, */*")
+	activityReq.Header.Set("Accept-Language", "en-GB,en;q=0.9,fr-FR;q=0.8,fr;q=0.7,en-US;q=0.6")
 	activityReq.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36")
 	activityReq.Header.Set("Origin", idoBaseURL)
 	activityReq.Header.Set("Referer", athleteURL)
+	activityReq.Header.Set("DNT", "1")
+	activityReq.Header.Set("Sec-Fetch-Dest", "empty")
+	activityReq.Header.Set("Sec-Fetch-Mode", "cors")
+	activityReq.Header.Set("Sec-Fetch-Site", "same-origin")
+
+	logRequest(activityReq, requestBody)
 
 	activityResp, err := client.Do(activityReq)
 	if err != nil {
@@ -228,9 +326,23 @@ func (c *Client) UploadActivity(activityData []byte, activityName string) error 
 	}
 	defer activityResp.Body.Close()
 
+	activityBody, err := io.ReadAll(activityResp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read activity creation response: %w", err)
+	}
+
+	logResponse(activityResp, activityBody)
+
 	if activityResp.StatusCode != 200 {
-		body, _ := io.ReadAll(activityResp.Body)
-		return fmt.Errorf("activity creation failed: %d %s", activityResp.StatusCode, string(body))
+		return fmt.Errorf("activity creation failed: %d %s", activityResp.StatusCode, string(activityBody))
+	}
+
+	// Parse the response to check for success message
+	var response struct {
+		Message string `json:"message"`
+	}
+	if err := json.Unmarshal(activityBody, &response); err == nil && response.Message != "" {
+		fmt.Printf("    Server response: %s\n", response.Message)
 	}
 
 	return nil
