@@ -1,0 +1,75 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # Triggers on version tags like v1.0.0, v1.2.3, etc.
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install Python dependencies
+        run: |
+          pip install garminconnect
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Build binaries
+        run: |
+          # Linux amd64
+          GOOS=linux GOARCH=amd64 go build -o garmin-to-ido-linux-amd64 -ldflags "-s -w -X main.version=${{ steps.get_version.outputs.VERSION }}" .
+
+          # Linux arm64
+          GOOS=linux GOARCH=arm64 go build -o garmin-to-ido-linux-arm64 -ldflags "-s -w -X main.version=${{ steps.get_version.outputs.VERSION }}" .
+
+          # macOS amd64 (Intel)
+          GOOS=darwin GOARCH=amd64 go build -o garmin-to-ido-darwin-amd64 -ldflags "-s -w -X main.version=${{ steps.get_version.outputs.VERSION }}" .
+
+          # macOS arm64 (Apple Silicon)
+          GOOS=darwin GOARCH=arm64 go build -o garmin-to-ido-darwin-arm64 -ldflags "-s -w -X main.version=${{ steps.get_version.outputs.VERSION }}" .
+
+          # Windows amd64
+          GOOS=windows GOARCH=amd64 go build -o garmin-to-ido-windows-amd64.exe -ldflags "-s -w -X main.version=${{ steps.get_version.outputs.VERSION }}" .
+
+      - name: Create checksums
+        run: |
+          sha256sum garmin-to-ido-* > checksums.txt
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            garmin-to-ido-linux-amd64
+            garmin-to-ido-linux-arm64
+            garmin-to-ido-darwin-amd64
+            garmin-to-ido-darwin-arm64
+            garmin-to-ido-windows-amd64.exe
+            checksums.txt
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
