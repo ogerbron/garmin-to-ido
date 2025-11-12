@@ -18,10 +18,40 @@ When I moved to iDO with my coach, my completed activities done on TrainerRoad w
 
 ## Prerequisites
 
-- Go 1.21 or higher
+- Python 3.x with `garminconnect` package
 - Chrome/Chromium browser (for headless browser automation)
 
 ## Installation
+
+### Option 1: Download Pre-built Binary (Recommended)
+
+1. Go to the [Releases page](https://github.com/YOUR_USERNAME/garmin-to-ido/releases)
+2. Download the binary for your platform:
+   - **Linux (64-bit)**: `garmin-to-ido-linux-amd64`
+   - **Linux (ARM64)**: `garmin-to-ido-linux-arm64`
+   - **macOS (Intel)**: `garmin-to-ido-darwin-amd64`
+   - **macOS (Apple Silicon)**: `garmin-to-ido-darwin-arm64`
+   - **Windows (64-bit)**: `garmin-to-ido-windows-amd64.exe`
+
+3. Make the binary executable (Linux/macOS only):
+```bash
+chmod +x garmin-to-ido-*
+```
+
+4. Install Python dependencies:
+```bash
+pip install garminconnect
+```
+
+5. Move the binary to a location in your PATH (optional):
+```bash
+# Linux/macOS
+sudo mv garmin-to-ido-* /usr/local/bin/garmin-to-ido
+
+# Or keep it in your current directory and run with ./garmin-to-ido
+```
+
+### Option 2: Build from Source
 
 1. Clone the repository:
 ```bash
@@ -29,12 +59,17 @@ git clone <repository-url>
 cd garmin-to-ido
 ```
 
-2. Install dependencies:
+2. Install Python dependencies:
+```bash
+pip install garminconnect
+```
+
+3. Install Go dependencies:
 ```bash
 go mod download
 ```
 
-3. Build the application:
+4. Build the application:
 ```bash
 go build -o garmin-to-ido
 ```

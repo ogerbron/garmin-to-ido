@@ -18,22 +18,30 @@ type PythonClient struct {
 
 // NewPythonClient creates a new Python-based Garmin client
 func NewPythonClient(username, password string) *PythonClient {
-	// Find the script path relative to the executable
-	scriptPath := "scripts/garmin_client.py"
 	return &PythonClient{
-		username:   username,
-		password:   password,
-		scriptPath: scriptPath,
+		username: username,
+		password: password,
 	}
 }
 
 // Login is a no-op for Python client (login happens per request)
 func (c *PythonClient) Login() error {
-	// Test that Python script exists and python3 is available
-	if _, err := os.Stat(c.scriptPath); os.IsNotExist(err) {
-		return fmt.Errorf("Python script not found at %s", c.scriptPath)
+	// Extract embedded script to temp file if not already done
+	if c.scriptPath == "" {
+		tmpFile, err := os.CreateTemp("", "garmin_client_*.py")
+		if err != nil {
+			return fmt.Errorf("failed to create temp file: %w", err)
+		}
+		defer tmpFile.Close()
+
+		if _, err := tmpFile.Write(pythonScript); err != nil {
+			return fmt.Errorf("failed to write Python script: %w", err)
+		}
+
+		c.scriptPath = tmpFile.Name()
 	}
 
+	// Test that python3 is available
 	if _, err := exec.LookPath("python3"); err != nil {
 		return fmt.Errorf("python3 not found in PATH")
 	}
@@ -104,7 +112,12 @@ func (c *PythonClient) DownloadActivity(activityID int64) ([]byte, error) {
 	return output, nil
 }
 
-// Logout is a no-op for Python client
+// Logout cleans up the temporary Python script file
 func (c *PythonClient) Logout() error {
+	if c.scriptPath != "" {
+		// Best effort cleanup - ignore errors
+		os.Remove(c.scriptPath)
+		c.scriptPath = ""
+	}
 	return nil
 }
