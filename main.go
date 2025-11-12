@@ -15,10 +15,12 @@ import (
 func main() {
 	// Parse command line flags
 	var dateFlag, configPath string
+	var debug bool
 	flag.StringVar(&dateFlag, "d", "", "Specific date to sync (format: YYYY-MM-DD). If not provided, syncs today and yesterday")
 	flag.StringVar(&dateFlag, "date", "", "Specific date to sync (format: YYYY-MM-DD). If not provided, syncs today and yesterday")
 	flag.StringVar(&configPath, "c", ".env", "Path to configuration file")
 	flag.StringVar(&configPath, "config", ".env", "Path to configuration file")
+	flag.BoolVar(&debug, "debug", false, "Log request/response details for debugging purposes")
 	flag.Parse()
 
 	// Load configuration
@@ -45,7 +47,6 @@ func main() {
 		now := time.Now()
 		datesToSync = []time.Time{
 			now,
-			now.AddDate(0, 0, -1),
 		}
 	}
 
@@ -82,7 +83,7 @@ func main() {
 	syncer := sync.NewSyncer(garminClient, idoClient)
 	for _, date := range datesToSync {
 		fmt.Printf("\nSyncing activities for %s...\n", date.Format("2006-01-02"))
-		if err := syncer.SyncBikeActivities(date); err != nil {
+		if err := syncer.SyncBikeActivities(date, debug); err != nil {
 			log.Printf("Error syncing activities for %s: %v", date.Format("2006-01-02"), err)
 			continue
 		}

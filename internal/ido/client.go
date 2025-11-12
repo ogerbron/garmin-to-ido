@@ -125,43 +125,47 @@ func mapActivityType(garminType string) string {
 }
 
 // logRequest logs HTTP request details
-func logRequest(req *http.Request, body []byte) {
-	fmt.Printf("\n=== REQUEST ===\n")
-	fmt.Printf("%s %s\n", req.Method, req.URL.String())
-	fmt.Printf("Headers:\n")
-	for key, values := range req.Header {
-		for _, value := range values {
-			fmt.Printf("  %s: %s\n", key, value)
+func logRequest(req *http.Request, body []byte, debug bool) {
+	if debug {
+		fmt.Printf("\n=== REQUEST ===\n")
+		fmt.Printf("%s %s\n", req.Method, req.URL.String())
+		fmt.Printf("Headers:\n")
+		for key, values := range req.Header {
+			for _, value := range values {
+				fmt.Printf("  %s: %s\n", key, value)
+			}
 		}
+		if len(body) > 0 && len(body) < 1000 {
+			fmt.Printf("Body: %s\n", string(body))
+		} else if len(body) > 0 {
+			fmt.Printf("Body: [%d bytes]\n", len(body))
+		}
+		fmt.Printf("===============\n\n")
 	}
-	if len(body) > 0 && len(body) < 1000 {
-		fmt.Printf("Body: %s\n", string(body))
-	} else if len(body) > 0 {
-		fmt.Printf("Body: [%d bytes]\n", len(body))
-	}
-	fmt.Printf("===============\n\n")
 }
 
 // logResponse logs HTTP response details
-func logResponse(resp *http.Response, body []byte) {
-	fmt.Printf("\n=== RESPONSE ===\n")
-	fmt.Printf("Status: %d %s\n", resp.StatusCode, resp.Status)
-	fmt.Printf("Headers:\n")
-	for key, values := range resp.Header {
-		for _, value := range values {
-			fmt.Printf("  %s: %s\n", key, value)
+func logResponse(resp *http.Response, body []byte, debug bool) {
+	if debug {
+		fmt.Printf("\n=== RESPONSE ===\n")
+		fmt.Printf("Status: %d %s\n", resp.StatusCode, resp.Status)
+		fmt.Printf("Headers:\n")
+		for key, values := range resp.Header {
+			for _, value := range values {
+				fmt.Printf("  %s: %s\n", key, value)
+			}
 		}
+		if len(body) > 0 && len(body) < 10000 {
+			fmt.Printf("Body: %s\n", string(body))
+		} else if len(body) > 0 {
+			fmt.Printf("Body: [%d bytes]\n", len(body))
+		}
+		fmt.Printf("================\n\n")
 	}
-	if len(body) > 0 && len(body) < 10000 {
-		fmt.Printf("Body: %s\n", string(body))
-	} else if len(body) > 0 {
-		fmt.Printf("Body: [%d bytes]\n", len(body))
-	}
-	fmt.Printf("================\n\n")
 }
 
 // UploadActivity uploads an activity to iDO Sport using the API
-func (c *Client) UploadActivity(activityData []byte, activityName, activityType string, activityDate time.Time) error {
+func (c *Client) UploadActivity(activityData []byte, activityName, activityType string, activityDate time.Time, debug bool) error {
 	fmt.Printf("\n\n========================================\n")
 	fmt.Printf("Uploading activity: %s (%d bytes, type: %s, date: %s)\n", activityName, len(activityData), activityType, activityDate.Format("2006-01-02"))
 	fmt.Printf("========================================\n")
@@ -221,7 +225,7 @@ func (c *Client) UploadActivity(activityData []byte, activityName, activityType 
 	req.Header.Set("Sec-Fetch-Mode", "cors")
 	req.Header.Set("Sec-Fetch-Site", "same-origin")
 
-	logRequest(req, nil)
+	logRequest(req, nil, debug)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -235,7 +239,7 @@ func (c *Client) UploadActivity(activityData []byte, activityName, activityType 
 		return fmt.Errorf("failed to read response: %w", err)
 	}
 
-	logResponse(resp, body)
+	logResponse(resp, body, debug)
 
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("failed to get upload URL: %d %s", resp.StatusCode, string(body))
@@ -267,7 +271,7 @@ func (c *Client) UploadActivity(activityData []byte, activityName, activityType 
 	s3Req.Header.Set("Sec-Fetch-Mode", "cors")
 	s3Req.Header.Set("Sec-Fetch-Site", "cross-site")
 
-	logRequest(s3Req, activityData)
+	logRequest(s3Req, activityData, debug)
 
 	s3Resp, err := client.Do(s3Req)
 	if err != nil {
@@ -276,7 +280,7 @@ func (c *Client) UploadActivity(activityData []byte, activityName, activityType 
 	defer s3Resp.Body.Close()
 
 	s3Body, _ := io.ReadAll(s3Resp.Body)
-	logResponse(s3Resp, s3Body)
+	logResponse(s3Resp, s3Body,	debug)
 
 	if s3Resp.StatusCode != 200 {
 		return fmt.Errorf("S3 upload failed: %d %s", s3Resp.StatusCode, string(s3Body))
@@ -318,7 +322,7 @@ func (c *Client) UploadActivity(activityData []byte, activityName, activityType 
 	activityReq.Header.Set("Sec-Fetch-Mode", "cors")
 	activityReq.Header.Set("Sec-Fetch-Site", "same-origin")
 
-	logRequest(activityReq, requestBody)
+	logRequest(activityReq, requestBody, debug)
 
 	activityResp, err := client.Do(activityReq)
 	if err != nil {
@@ -331,7 +335,7 @@ func (c *Client) UploadActivity(activityData []byte, activityName, activityType 
 		return fmt.Errorf("failed to read activity creation response: %w", err)
 	}
 
-	logResponse(activityResp, activityBody)
+	logResponse(activityResp, activityBody, debug)
 
 	if activityResp.StatusCode != 200 {
 		return fmt.Errorf("activity creation failed: %d %s", activityResp.StatusCode, string(activityBody))

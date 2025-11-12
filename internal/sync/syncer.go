@@ -28,7 +28,7 @@ func NewSyncer(garminClient garmin.GarminClient, idoClient *ido.Client) *Syncer 
 }
 
 // SyncBikeActivities synchronizes bike activities for a specific date
-func (s *Syncer) SyncBikeActivities(date time.Time) error {
+func (s *Syncer) SyncBikeActivities(date time.Time, debug bool) error {
 	// Get bike activities from Garmin
 	activities, err := s.garminClient.GetBikeActivities(date)
 	if err != nil {
@@ -119,7 +119,7 @@ func (s *Syncer) SyncBikeActivities(date time.Time) error {
 		}
 
 		// Upload the extracted FIT data to iDO (not the ZIP)
-		if err := s.idoClient.UploadActivity(fitData, activity.ActivityName, activity.ActivityType, activity.StartTime); err != nil {
+		if err := s.idoClient.UploadActivity(fitData, activity.ActivityName, activity.ActivityType, activity.StartTime, debug); err != nil {
 			fmt.Printf("    ✗ Failed to upload: %v\n", err)
 			continue
 		}
