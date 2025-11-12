@@ -2,10 +2,16 @@
 
 A Golang CLI tool to synchronize bike activities from Garmin Connect to iDO Sport.
 
+TL;DR
+
+When I moved to iDO with my coach, my completed activities done on TrainerRoad wouldn't be uploaded to iDO. That's because TrainerRoad would push the completed workout to Garmin, but Garmin wouldn't forward it to iDO (because it's not a garmin activity directly). So I just added some glue to get it done automatically (i.e. get the activity from Garmin and upload it to iDO).
+
+![Workflow](images/workflow.png)
+
 ## Features
 
 - Sync bike activities from Garmin Connect to iDO Sport
-- By default, syncs today and yesterday's activities
+- By default, syncs today's activities
 - Specify a custom date to sync
 - Uses Garmin Connect API with username/password authentication
 - Uses browser automation (chromedp) for iDO Sport (no official API available)
